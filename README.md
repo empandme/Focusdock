@@ -4,7 +4,7 @@
 
 FocusDock is a lightweight macOS desktop todo widget built with Electron, React, and Vite. It keeps tasks in a local `todo.md` file, so both you and AI coding assistants can read, edit, summarize, and reorganize the same source of truth.
 
-FocusDock 是一个轻量的 macOS 桌面 Todo 小窗，使用 Electron、React 和 Vite 构建。它把任务保存在本地 `todo.md`，方便用户和 AI 助手共同读取、整理、压缩和更新同一份任务数据。
+FocusDock 是一个轻量的 macOS 桌面 Todo 小窗，使用 Electron、React 和 Vite 构建。它把任务保存在本地 `todo.md`，方便用户和 AI 助手共同读取、整理、压缩和更新同一份任务数据。授予AI助手修改文件和gmail的权限，让AI帮你整理桌面和待办事项。
 
 ## Features / 功能
 
@@ -111,41 +111,3 @@ This project currently uses ad-hoc signing for personal macOS builds. Official d
 ## Done
 - [x] Submit weekly notes @2026-09-01 <!-- from:Todo -->
 ```
-
-Rules:
-
-规则：
-
-- Put dated tasks in `Todo` with `@YYYY-MM-DD`.
-- Put undated or unclear tasks in `Inbox`.
-- Keep widget tasks short and scannable.
-- Put background details in `agent-log.md` or `daily-briefs/`.
-
-- 有日期的任务放进 `Todo`，并使用 `@YYYY-MM-DD`。
-- 没日期、需要确认或还没想清楚的任务放进 `Inbox`。
-- 小窗任务要短，适合快速扫读。
-- 背景说明放进 `agent-log.md` 或 `daily-briefs/`。
-
-## Repository Settings / 仓库设置建议
-
-- Repository name: `focusdock`
-- GitHub description: `A tiny macOS todo widget powered by Markdown and AI.`
-- Bundle ID: `com.william.focusdock`
-- License: MIT
-- Release style: source code plus downloadable macOS app zip
-
-- 仓库名：`focusdock`
-- GitHub 简介：`A tiny macOS todo widget powered by Markdown and AI.`
-- Bundle ID：`com.william.focusdock`
-- 开源协议：MIT
-- 发布方式：源码仓库 + GitHub Release 中的 macOS App zip
-
-## Logo Direction / Logo 方向
-
-A simple macOS-style icon is recommended: a dark translucent rounded square, a clean white checkbox in the center, a small calendar corner mark, and a subtle AI sparkle. It should feel like a quiet desktop utility rather than a large productivity platform.
-
-建议使用一个简洁的 macOS 风格图标：深色半透明圆角方块作为底，中间是白色细线复选框，右上角叠一个小日历角标，再加一颗很低调的 AI 星点。整体应该像安静的桌面工具，而不是复杂的生产力平台。
-
-## License / 开源协议
-
-MIT License. See [LICENSE](LICENSE).
