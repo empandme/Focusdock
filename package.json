@@ -1,0 +1,51 @@
+{
+  "name": "focusdock",
+  "version": "0.1.0",
+  "private": true,
+  "productName": "FocusDock",
+  "description": "A tiny macOS todo widget powered by Markdown and AI.",
+  "author": "William Wu",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "icon": "node scripts/create-icon.mjs",
+    "build": "vite build",
+    "start": "electron .",
+    "package:mac": "npm run icon && npm run build && electron-builder --mac"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^43.4.1",
+    "electron-builder": "^26.0.12",
+    "vite": "^7.0.0"
+  },
+  "build": {
+    "appId": "com.william.focusdock",
+    "productName": "FocusDock",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "todo.md"
+    ],
+    "asar": true,
+    "mac": {
+      "target": [
+        "dir",
+        "zip"
+      ],
+      "icon": "assets/icon.png",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "notarize": false
+    }
+  }
+}
