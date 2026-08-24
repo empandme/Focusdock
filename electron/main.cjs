@@ -10,8 +10,12 @@ const appDisplayName = "FocusDock";
 const legacyAppDisplayNames = ["Simple Todo List with AI", "William Todo List Demo", "markdown-todo-shell"];
 const defaultWindowWidth = 360;
 const defaultWindowHeight = 360;
-const defaultTodoMarkdown = "# Todo\n\n## Inbox\n\n## Todo\n\n## Done\n";
-const defaultDailyBriefMarkdown = `# YYYY-MM-DD Daily Brief
+const DEFAULT_TODO_MARKDOWN = {
+  en: "# Todo\n\n## Inbox\n\n## Todo\n\n## Done\n",
+  zh: "# 待办\n\n## 收件箱\n\n## 待办\n\n## 完成\n"
+};
+const DEFAULT_DAILY_BRIEF_MARKDOWN = {
+  en: `# YYYY-MM-DD Daily Brief
 
 ## Today
 
@@ -37,7 +41,35 @@ const defaultDailyBriefMarkdown = `# YYYY-MM-DD Daily Brief
 
 1. \`Project: action/keyword @YYYY-MM-DD\`
 2. \`Project: undated action\`
-`;
+`,
+  zh: `# YYYY-MM-DD 每日早报
+
+## 今天
+
+1. 写下今天发生的事项，包括时间、地点、相关性和现在需要做的事。
+
+## 临近截止
+
+1. 写下即将到来的截止时间或近期安排。
+
+## 需要确认
+
+1. 写下不确定信息或需要用户确认的选择。
+
+## 可选活动
+
+1. 写下可选但有价值的近期活动。
+
+## 垃圾/忽略
+
+1. 写下简报、推广或无需行动的信息。
+
+## 可加入 Todo 候选
+
+1. \`项目：行动/关键词 @YYYY-MM-DD\`
+2. \`项目：无日期行动\`
+`
+};
 const defaultStartupMode = "locked";
 const briefWindowWidth = 560;
 const briefWindowHeight = 680;
@@ -128,8 +160,21 @@ function getSeedFilePath(relativePath) {
   return path.join(getSeedDataDir(), relativePath);
 }
 
+function getLocalizedSeedRelativePath(relativePath, language = getPreferredLanguage()) {
+  const parsedPath = path.parse(relativePath);
+  return path.join(parsedPath.dir, `${parsedPath.name}.${language}${parsedPath.ext}`);
+}
+
 function getPreferredLanguage() {
   return app.getLocale()?.toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+function getDefaultTodoMarkdown(language = getPreferredLanguage()) {
+  return DEFAULT_TODO_MARKDOWN[language] || DEFAULT_TODO_MARKDOWN.en;
+}
+
+function getDefaultDailyBriefMarkdown(language = getPreferredLanguage()) {
+  return DEFAULT_DAILY_BRIEF_MARKDOWN[language] || DEFAULT_DAILY_BRIEF_MARKDOWN.en;
 }
 
 function getNativeText(key) {
@@ -342,7 +387,9 @@ async function isDefaultDailyBriefFile(filePath) {
 
   const date = path.basename(filePath, ".md");
   const content = await fs.readFile(filePath, "utf8");
-  return content === defaultDailyBriefMarkdown.split("YYYY-MM-DD").join(date);
+  return Object.values(DEFAULT_DAILY_BRIEF_MARKDOWN).some(markdown => (
+    content === markdown.split("YYYY-MM-DD").join(date)
+  ));
 }
 
 async function copyFileIfMissingOrDefault(sourcePath, targetPath) {
@@ -385,10 +432,19 @@ async function copyDirectoryIfMissingOrDefault(sourceDirectory, targetDirectory)
 
 async function readSeedFile(relativePath, fallback, replacements = {}) {
   let content = fallback;
-  const seedPath = getSeedFilePath(relativePath);
+  const language = getPreferredLanguage();
+  const seedRelativePaths = [
+    getLocalizedSeedRelativePath(relativePath, language),
+    relativePath,
+    getLocalizedSeedRelativePath(relativePath, language === "zh" ? "en" : "zh")
+  ].filter((candidate, index, candidates) => candidates.indexOf(candidate) === index);
 
-  if (await fileExists(seedPath)) {
-    content = await fs.readFile(seedPath, "utf8");
+  for (const seedRelativePath of seedRelativePaths) {
+    const seedPath = getSeedFilePath(seedRelativePath);
+    if (await fileExists(seedPath)) {
+      content = await fs.readFile(seedPath, "utf8");
+      break;
+    }
   }
 
   return Object.entries(replacements).reduce(
@@ -410,7 +466,7 @@ async function readInitialTodoMarkdown() {
     }
   }
 
-  return readSeedFile("todo.md", defaultTodoMarkdown);
+  return readSeedFile("todo.md", getDefaultTodoMarkdown());
 }
 
 async function ensureSeedFile(targetPath, relativeSeedPath, fallback, replacements = {}) {
@@ -454,7 +510,7 @@ async function ensureDataFiles() {
   await ensureSeedFile(
     path.join(dailyBriefsDir, `${today}.md`),
     "daily-briefs/YYYY-MM-DD.md",
-    defaultDailyBriefMarkdown,
+    getDefaultDailyBriefMarkdown(),
     { "YYYY-MM-DD": today }
   );
 }
@@ -889,7 +945,7 @@ function createWindow() {
     }
   });
 
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
 
   const showWindow = () => {
     if (win.isDestroyed() || win.isVisible()) {

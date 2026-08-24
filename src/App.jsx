@@ -4,7 +4,21 @@ import "./styles.css";
 
 const SECTION_ORDER = ["Inbox", "Todo", "Done"];
 const ACTIVE_SECTIONS = ["Todo", "Inbox"];
-const LEGACY_SECTIONS = ["Today", "Future", "Waiting", "Later"];
+const TODO_SECTION_DEFINITIONS = [
+  { key: "Inbox", headings: ["Inbox", "收件箱"] },
+  { key: "Todo", headings: ["Todo", "待办"] },
+  { key: "Done", headings: ["Done", "完成", "已完成"] }
+];
+const TODO_SECTION_TITLES = {
+  en: { Inbox: "Inbox", Todo: "Todo", Done: "Done", documentTitle: "Todo" },
+  zh: { Inbox: "收件箱", Todo: "待办", Done: "完成", documentTitle: "待办" }
+};
+const LEGACY_SECTION_MAP = {
+  Today: "Todo",
+  Future: "Todo",
+  Waiting: "Todo",
+  Later: "Todo"
+};
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const INLINE_DATE_PATTERN = /(?:^|\s)@(\d{4}-\d{2}-\d{2})\s*$/;
 const BRIEF_SECTION_DEFINITIONS = [
@@ -150,11 +164,46 @@ function translate(language, key, replacements = {}) {
 }
 
 function normalizeSection(section) {
-  if (LEGACY_SECTIONS.includes(section)) {
-    return "Todo";
+  if (LEGACY_SECTION_MAP[section]) {
+    return LEGACY_SECTION_MAP[section];
   }
 
-  return SECTION_ORDER.includes(section) ? section : null;
+  return TODO_SECTION_DEFINITIONS.find(definition => definition.headings.includes(section))?.key || null;
+}
+
+function getTodoHeadingLanguage(heading) {
+  if (TODO_SECTION_DEFINITIONS.some(definition => definition.headings[0] === heading)) {
+    return "en";
+  }
+
+  if (TODO_SECTION_DEFINITIONS.some(definition => definition.headings.slice(1).includes(heading))) {
+    return "zh";
+  }
+
+  return null;
+}
+
+function detectTodoLanguage(markdown) {
+  const scores = { en: 0, zh: 0 };
+
+  for (const line of markdown.split(/\r?\n/)) {
+    const title = line.match(/^#\s+(.+?)\s*$/);
+    if (title && title[1].trim() === TODO_SECTION_TITLES.zh.documentTitle) {
+      scores.zh += 1;
+    }
+
+    const heading = line.match(/^##\s+(.+?)\s*$/);
+    if (!heading) {
+      continue;
+    }
+
+    const language = getTodoHeadingLanguage(heading[1].trim());
+    if (language) {
+      scores[language] += 1;
+    }
+  }
+
+  return scores.zh > scores.en ? "zh" : "en";
 }
 
 function emptySections() {
@@ -175,7 +224,7 @@ function parseTaskMetadata(rawText) {
   const metadata = {};
   for (const match of rawText.matchAll(/<!--\s*([\s\S]*?)\s*-->/g)) {
     const body = match[1];
-    const sourceSection = body.match(/\bfrom:(Inbox|Todo|Today|Future|Waiting|Later)\b/);
+    const sourceSection = body.match(/from:([^\s]+)/);
     const dueDate = body.match(/\bdue:(\d{4}-\d{2}-\d{2})\b/);
 
     if (sourceSection) {
@@ -266,18 +315,19 @@ function parseTodo(markdown) {
     const heading = line.match(/^##\s+(.+?)\s*$/);
     if (heading) {
       const headingName = heading[1].trim();
-      current = SECTION_ORDER.includes(headingName) || LEGACY_SECTIONS.includes(headingName) ? headingName : null;
+      const section = normalizeSection(headingName);
+      current = section ? { section, headingName } : null;
       continue;
     }
 
     const task = line.match(/^-\s+\[([ xX])\]\s+(.+?)\s*$/);
     if (task && current) {
       const parsed = parseTaskContent(task[2]);
-      const dueDate = parsed.dueDate || (current === "Today" ? getLocalDateString() : undefined);
-      const targetSection = current === "Done"
+      const dueDate = parsed.dueDate || (current.headingName === "Today" ? getLocalDateString() : undefined);
+      const targetSection = current.section === "Done"
         ? "Done"
         : dueDate ? "Todo" : "Inbox";
-      const sourceSection = current === "Done"
+      const sourceSection = current.section === "Done"
         ? normalizeSection(parsed.sourceSection) || (dueDate ? "Todo" : "Inbox")
         : targetSection;
 
@@ -294,11 +344,12 @@ function parseTodo(markdown) {
   return normalizeSections(sections);
 }
 
-function serializeTodo(sections) {
-  const lines = ["# Todo", ""];
+function serializeTodo(sections, todoLanguage = "en") {
+  const titles = TODO_SECTION_TITLES[todoLanguage] || TODO_SECTION_TITLES.en;
+  const lines = [`# ${titles.documentTitle}`, ""];
 
   SECTION_ORDER.forEach((section, sectionIndex) => {
-    lines.push(`## ${section}`);
+    lines.push(`## ${titles[section]}`);
     const tasks = sections[section] || [];
     tasks.forEach(task => {
       const checked = section === "Done" || task.checked ? "x" : " ";
@@ -863,7 +914,7 @@ function App({ language, t, onToggleLanguage }) {
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(async () => {
       const baseMarkdown = currentMarkdownRef.current;
-      const nextMarkdown = serializeTodo(normalizedSections);
+      const nextMarkdown = serializeTodo(normalizedSections, detectTodoLanguage(baseMarkdown));
       const result = await window.todoShell.writeTodoSafe(nextMarkdown, baseMarkdown || undefined);
       if (result.conflict) {
         currentMarkdownRef.current = result.markdown;
