@@ -1,41 +1,17 @@
-# Agent Log
+# Agent Log / 智能体日志
 
-This public log is intentionally short and contains no personal schedule, email, or account data.
+This public file is intentionally minimal. Detailed development notes are kept in `agent-log.private.md`, which is ignored by Git.
 
-## 2026-08-22 Public Release Prep
+这个公开文件会刻意保持简短。详细开发记录保存在被 Git 忽略的 `agent-log.private.md` 中。
 
-- Renamed the project to FocusDock.
-- Set package name to `focusdock`.
-- Set macOS bundle id to `com.william.focusdock`.
-- Updated the GitHub description to: `A tiny macOS todo widget powered by Markdown and AI.`
-- Added a bilingual English/Chinese README.
-- Added an MIT License.
-- Replaced personal `todo.md` content with sample tasks.
-- Replaced the daily brief with a sample daily brief.
-- Kept the app release path as source code plus a downloadable macOS app zip.
-- Preserved private local history in `agent-log.private.md`, which is ignored by Git.
-- Added a generated FocusDock app icon at `assets/icon.png` and `assets/icon.icns`.
-- Packaged a local macOS build at `release/mac-arm64/FocusDock.app`.
-- Packaged a GitHub Release zip at `release/FocusDock-0.1.0-arm64-mac.zip`.
-- Verified the packaged app with `codesign --verify --deep --strict`.
+Do not place personal schedules, email contents, account data, or detailed local development handoff notes in this public file.
 
-## Current Architecture
+不要在这个公开文件里放个人日程、邮件正文、账号数据，或详细的本地开发交接记录。
 
-- Electron main process: `electron/main.cjs`.
-- Preload bridge: `electron/preload.cjs`.
-- React UI: `src/App.jsx`.
-- Styles: `src/styles.css`.
-- Task data source: `todo.md`.
-- Daily brief files: `daily-briefs/YYYY-MM-DD.md`.
-- Build output: `dist/`.
-- Packaged app output: `release/`.
+## Public Release Notes / 公开发布记录
 
-## Validation Checklist
+- 2026-08-22: Prepared FocusDock for a public source release and macOS app zip.
+- 2026-08-22：整理 FocusDock，使其适合公开源码发布和 macOS App zip 发布。
 
-- Run `npm install`.
-- Run `node --check electron/main.cjs`.
-- Run `node --check electron/preload.cjs`.
-- Run `npm run build`.
-- Run `npm run package:mac`.
-- Confirm `release/mac-arm64/FocusDock.app` opens locally.
-- Upload the generated zip from `release/` to GitHub Releases instead of committing `release/`.
+- 2026-08-24: Added packaged data-folder templates, a file-location window, and English/Chinese runtime support.
+- 2026-08-24：新增打包用数据文件夹模板、文件位置窗口，以及中英文运行时支持。

@@ -11,10 +11,38 @@ const legacyAppDisplayNames = ["Simple Todo List with AI", "William Todo List De
 const defaultWindowWidth = 360;
 const defaultWindowHeight = 360;
 const defaultTodoMarkdown = "# Todo\n\n## Inbox\n\n## Todo\n\n## Done\n";
-const defaultAgentLogMarkdown = "# Agent Log\n";
+const defaultDailyBriefMarkdown = `# YYYY-MM-DD Daily Brief
+
+## Today
+
+1. Replace this with items happening today, including time, location, relevance, and any action needed now.
+
+## Approaching Deadlines
+
+1. Replace this with upcoming deadlines or near-term schedule items.
+
+## Needs Confirmation
+
+1. Replace this with uncertain information or choices the user needs to confirm.
+
+## Optional Events
+
+1. Replace this with optional but valuable near-term events.
+
+## Trash / Ignore
+
+1. Replace this with newsletters, promotions, or information that needs no action.
+
+## Todo Candidates
+
+1. \`Project: action/keyword @YYYY-MM-DD\`
+2. \`Project: undated action\`
+`;
 const defaultStartupMode = "locked";
 const briefWindowWidth = 560;
 const briefWindowHeight = 680;
+const dataLocationWindowWidth = 560;
+const dataLocationWindowHeight = 420;
 let todoConfig = null;
 let todoFileWatcher = null;
 let todoDirectoryWatcher = null;
@@ -22,7 +50,38 @@ let todoWatchPath = null;
 let todoWatchTimer = null;
 let todoLastSignature = null;
 let todoWriteQueue = Promise.resolve();
+let dataLocationWindow = null;
 const execFileAsync = promisify(execFile);
+const NATIVE_COPY = {
+  en: {
+    chooseTodoDataFolderTitle: "Choose Todo Data Folder",
+    chooseTodoDataFolderMessage: "Choose the folder where FocusDock should store todo.md.",
+    chooseCurrentTodoDataFolderMessage: "Choose where FocusDock should store todo.md.",
+    useThisFolder: "Use This Folder",
+    dataFolderRequiredTitle: "Data Folder Required",
+    dataFolderRequiredMessage: "FocusDock needs a folder to store todo.md.",
+    dataFolderRequiredDetail: "You can choose a folder again or quit the app. FocusDock will ask again the next time it opens.",
+    chooseAgain: "Choose Again",
+    quit: "Quit",
+    dataFolderCanceled: "Todo data folder selection was cancelled.",
+    emptyDataFolder: "Data folder path cannot be empty.",
+    fileLocationTitle: "File Location"
+  },
+  zh: {
+    chooseTodoDataFolderTitle: "选择 Todo 数据文件夹",
+    chooseTodoDataFolderMessage: "请选择 FocusDock 保存 todo.md 的文件夹。",
+    chooseCurrentTodoDataFolderMessage: "请选择 FocusDock 保存 todo.md 的位置。",
+    useThisFolder: "使用这个文件夹",
+    dataFolderRequiredTitle: "需要选择数据文件夹",
+    dataFolderRequiredMessage: "FocusDock 需要一个文件夹来保存 todo.md。",
+    dataFolderRequiredDetail: "你可以重新选择文件夹，或者退出应用。以后重新打开应用时会再次询问。",
+    chooseAgain: "重新选择",
+    quit: "退出",
+    dataFolderCanceled: "Todo 数据文件夹选择已取消。",
+    emptyDataFolder: "数据文件夹路径不能为空。",
+    fileLocationTitle: "文件位置"
+  }
+};
 
 app.setName(appDisplayName);
 
@@ -61,8 +120,21 @@ function getLegacyConfigPaths() {
   return legacyAppDisplayNames.map(name => path.join(appDataDir, name, "config.json"));
 }
 
-function getBundledTodoPath() {
-  return path.join(getAppRootDir(), "todo.md");
+function getSeedDataDir() {
+  return path.join(getAppRootDir(), "seed-data");
+}
+
+function getSeedFilePath(relativePath) {
+  return path.join(getSeedDataDir(), relativePath);
+}
+
+function getPreferredLanguage() {
+  return app.getLocale()?.toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+function getNativeText(key) {
+  const language = getPreferredLanguage();
+  return NATIVE_COPY[language]?.[key] || NATIVE_COPY.en[key] || key;
 }
 
 async function readJsonFile(filePath) {
@@ -144,9 +216,9 @@ async function chooseInitialDataDirectory() {
 
   while (true) {
     const result = await dialog.showOpenDialog({
-      title: "选择 Todo 数据文件夹",
-      message: "请选择 FocusDock 保存 todo.md 的文件夹。",
-      buttonLabel: "使用这个文件夹",
+      title: getNativeText("chooseTodoDataFolderTitle"),
+      message: getNativeText("chooseTodoDataFolderMessage"),
+      buttonLabel: getNativeText("useThisFolder"),
       defaultPath: app.getPath("documents"),
       properties: ["openDirectory", "createDirectory"]
     });
@@ -157,10 +229,10 @@ async function chooseInitialDataDirectory() {
 
     const retry = await dialog.showMessageBox({
       type: "question",
-      title: "需要选择数据文件夹",
-      message: "FocusDock 需要一个文件夹来保存 todo.md。",
-      detail: "你可以重新选择文件夹，或者退出应用。以后重新打开应用时会再次询问。",
-      buttons: ["重新选择", "退出"],
+      title: getNativeText("dataFolderRequiredTitle"),
+      message: getNativeText("dataFolderRequiredMessage"),
+      detail: getNativeText("dataFolderRequiredDetail"),
+      buttons: [getNativeText("chooseAgain"), getNativeText("quit")],
       defaultId: 0,
       cancelId: 1
     });
@@ -188,7 +260,7 @@ async function ensureConfig() {
 
   const selectedDirectory = await chooseInitialDataDirectory();
   if (!selectedDirectory) {
-    throw new Error("Todo data folder selection was cancelled.");
+    throw new Error(getNativeText("dataFolderCanceled"));
   }
 
   return writeConfig({
@@ -206,6 +278,15 @@ async function updateConfig(updates) {
 async function getTodoPath() {
   const config = await ensureConfig();
   return config.todoPath;
+}
+
+async function getDataLocation() {
+  const config = await ensureConfig();
+  return {
+    dataDirectory: path.dirname(config.todoPath),
+    todoPath: config.todoPath,
+    dailyBriefsDirectory: await getDailyBriefsDir()
+  };
 }
 
 async function getLogPath() {
@@ -250,8 +331,73 @@ async function fileExists(filePath) {
   }
 }
 
-async function readBundledTodoSeed() {
-  const bundledTodoPath = getBundledTodoPath();
+function isDailyBriefPath(filePath) {
+  return /^\d{4}-\d{2}-\d{2}\.md$/.test(path.basename(filePath)) && path.basename(path.dirname(filePath)) === "daily-briefs";
+}
+
+async function isDefaultDailyBriefFile(filePath) {
+  if (!isDailyBriefPath(filePath) || !(await fileExists(filePath))) {
+    return false;
+  }
+
+  const date = path.basename(filePath, ".md");
+  const content = await fs.readFile(filePath, "utf8");
+  return content === defaultDailyBriefMarkdown.split("YYYY-MM-DD").join(date);
+}
+
+async function copyFileIfMissingOrDefault(sourcePath, targetPath) {
+  if (!(await fileExists(sourcePath))) {
+    return;
+  }
+
+  const shouldCopy = !(await fileExists(targetPath)) || await isDefaultDailyBriefFile(targetPath);
+  if (!shouldCopy) {
+    return;
+  }
+
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.copyFile(sourcePath, targetPath);
+}
+
+async function copyDirectoryIfMissingOrDefault(sourceDirectory, targetDirectory) {
+  if (!(await fileExists(sourceDirectory))) {
+    return;
+  }
+
+  await fs.mkdir(targetDirectory, { recursive: true });
+  const entries = await fs.readdir(sourceDirectory, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (entry.name === ".DS_Store") {
+      continue;
+    }
+
+    const sourcePath = path.join(sourceDirectory, entry.name);
+    const targetPath = path.join(targetDirectory, entry.name);
+
+    if (entry.isDirectory()) {
+      await copyDirectoryIfMissingOrDefault(sourcePath, targetPath);
+    } else if (entry.isFile()) {
+      await copyFileIfMissingOrDefault(sourcePath, targetPath);
+    }
+  }
+}
+
+async function readSeedFile(relativePath, fallback, replacements = {}) {
+  let content = fallback;
+  const seedPath = getSeedFilePath(relativePath);
+
+  if (await fileExists(seedPath)) {
+    content = await fs.readFile(seedPath, "utf8");
+  }
+
+  return Object.entries(replacements).reduce(
+    (nextContent, [token, value]) => nextContent.split(token).join(value),
+    content
+  );
+}
+
+async function readInitialTodoMarkdown() {
   const todoPath = await getTodoPath();
   const previousPackagedTodoPaths = [
     path.join(getDataDir(), "todo.md"),
@@ -264,26 +410,107 @@ async function readBundledTodoSeed() {
     }
   }
 
-  if (bundledTodoPath === todoPath || !(await fileExists(bundledTodoPath))) {
-    return defaultTodoMarkdown;
+  return readSeedFile("todo.md", defaultTodoMarkdown);
+}
+
+async function ensureSeedFile(targetPath, relativeSeedPath, fallback, replacements = {}) {
+  if (await fileExists(targetPath)) {
+    return;
   }
 
-  return fs.readFile(bundledTodoPath, "utf8");
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.writeFile(targetPath, await readSeedFile(relativeSeedPath, fallback, replacements), "utf8");
 }
 
 async function ensureDataFiles() {
   const todoPath = await getTodoPath();
-  const logPath = await getLogPath();
+  const dataDirectory = path.dirname(todoPath);
+  const dailyBriefsDir = await getDailyBriefsDir();
+  const today = getLocalDateString();
 
-  await fs.mkdir(path.dirname(todoPath), { recursive: true });
+  await fs.mkdir(dailyBriefsDir, { recursive: true });
 
   if (!(await fileExists(todoPath))) {
-    await fs.writeFile(todoPath, await readBundledTodoSeed(), "utf8");
+    await fs.writeFile(todoPath, await readInitialTodoMarkdown(), "utf8");
   }
 
-  if (!(await fileExists(logPath))) {
-    await fs.writeFile(logPath, defaultAgentLogMarkdown, "utf8");
+  await ensureSeedFile(path.join(dataDirectory, "README.md"), "README.md", "# FocusDock Data Folder\n");
+  await ensureSeedFile(path.join(dataDirectory, "rules.md"), "rules.md", "# FocusDock Agent Rules\n");
+  await ensureSeedFile(
+    path.join(dataDirectory, "archive.md"),
+    "archive.md",
+    "# Archive\n\nCompleted tasks moved out of `todo.md` Done go here.\n"
+  );
+  await ensureSeedFile(
+    await getLogPath(),
+    "agent-log.md",
+    "# Agent Log\n\nRecord short notes about organization or edits performed by an AI agent. Do not store private email text or account data here.\n"
+  );
+  await ensureSeedFile(
+    path.join(dailyBriefsDir, "README.md"),
+    "daily-briefs/README.md",
+    "# Daily Briefs\n"
+  );
+  await ensureSeedFile(
+    path.join(dailyBriefsDir, `${today}.md`),
+    "daily-briefs/YYYY-MM-DD.md",
+    defaultDailyBriefMarkdown,
+    { "YYYY-MM-DD": today }
+  );
+}
+
+async function changeDataDirectory(dataDirectory) {
+  const trimmedDirectory = typeof dataDirectory === "string" ? dataDirectory.trim() : "";
+  if (!trimmedDirectory) {
+    throw new Error(getNativeText("emptyDataFolder"));
   }
+
+  await ensureDataFiles();
+  const currentTodoPath = await getTodoPath();
+  const currentDataDirectory = path.dirname(currentTodoPath);
+  const resolvedInputPath = path.resolve(trimmedDirectory);
+  const nextDataDirectory = path.basename(resolvedInputPath).toLowerCase() === "todo.md"
+    ? path.dirname(resolvedInputPath)
+    : resolvedInputPath;
+
+  if (path.resolve(currentDataDirectory) !== path.resolve(nextDataDirectory)) {
+    await copyDirectoryIfMissingOrDefault(currentDataDirectory, nextDataDirectory);
+  }
+
+  await updateConfig({
+    dataDirectory: nextDataDirectory
+  });
+  await ensureDataFiles();
+  await startTodoWatcher({ force: true });
+  notifyTodoChanged();
+
+  return getDataLocation();
+}
+
+async function chooseDataDirectory(parentWindow = null) {
+  const currentLocation = await getDataLocation();
+  const dialogOptions = {
+    title: getNativeText("chooseTodoDataFolderTitle"),
+    message: getNativeText("chooseCurrentTodoDataFolderMessage"),
+    buttonLabel: getNativeText("useThisFolder"),
+    defaultPath: currentLocation.dataDirectory,
+    properties: ["openDirectory", "createDirectory"]
+  };
+  const result = parentWindow && !parentWindow.isDestroyed()
+    ? await dialog.showOpenDialog(parentWindow, dialogOptions)
+    : await dialog.showOpenDialog(dialogOptions);
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return {
+      canceled: true,
+      ...currentLocation
+    };
+  }
+
+  return {
+    canceled: false,
+    ...await changeDataDirectory(result.filePaths[0])
+  };
 }
 
 async function appendAgentLog(message) {
@@ -703,7 +930,7 @@ function createWindow() {
   win.on("closed", () => stopLockHitTest(win));
 
   win.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedUrl) => {
-    appendAgentLog(`窗口页面加载失败：${errorCode} ${errorDescription} ${validatedUrl}`).catch(() => {});
+    appendAgentLog(`Window page failed to load: ${errorCode} ${errorDescription} ${validatedUrl}`).catch(() => {});
   });
 
   const startUrl = process.env.ELECTRON_START_URL;
@@ -714,14 +941,69 @@ function createWindow() {
   }
 }
 
+function loadDataLocationWindow(win) {
+  const startUrl = process.env.ELECTRON_START_URL;
+  if (startUrl) {
+    const url = new URL(startUrl);
+    url.searchParams.set("view", "data-location");
+    win.loadURL(url.toString());
+    return;
+  }
+
+  win.loadFile(path.join(getAppRootDir(), "dist", "index.html"), {
+    query: {
+      view: "data-location"
+    }
+  });
+}
+
+function openDataLocationWindow() {
+  if (dataLocationWindow && !dataLocationWindow.isDestroyed()) {
+    revealWindow(dataLocationWindow);
+    return dataLocationWindow.getBounds();
+  }
+
+  dataLocationWindow = new BrowserWindow({
+    width: dataLocationWindowWidth,
+    height: dataLocationWindowHeight,
+    minWidth: 500,
+    minHeight: 360,
+    center: true,
+    backgroundColor: "#080d11",
+    transparent: false,
+    frame: false,
+    resizable: false,
+    show: false,
+    title: getNativeText("fileLocationTitle"),
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  dataLocationWindow.todoIsDataLocationWindow = true;
+
+  dataLocationWindow.once("ready-to-show", () => revealWindow(dataLocationWindow));
+  dataLocationWindow.webContents.once("did-finish-load", () => revealWindow(dataLocationWindow));
+  dataLocationWindow.on("closed", () => {
+    dataLocationWindow = null;
+  });
+  dataLocationWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedUrl) => {
+    appendAgentLog(`Data location window failed to load: ${errorCode} ${errorDescription} ${validatedUrl}`).catch(() => {});
+  });
+
+  loadDataLocationWindow(dataLocationWindow);
+  return dataLocationWindow.getBounds();
+}
+
 function revealExistingOrCreateWindow() {
-  const windows = BrowserWindow.getAllWindows().filter(win => !win.isDestroyed());
-  if (windows.length === 0) {
+  const todoWindows = BrowserWindow.getAllWindows().filter(win => !win.isDestroyed() && !win.todoIsDataLocationWindow);
+  if (todoWindows.length === 0) {
     createWindow();
     return;
   }
 
-  revealWindow(windows[0]);
+  revealWindow(todoWindows[0]);
 }
 
 app.whenReady().then(async () => {
@@ -771,6 +1053,23 @@ ipcMain.handle("todo:write-safe", async (_event, markdown, baseMarkdown) => {
   return writeTodoMarkdown(markdown, baseMarkdown);
 });
 
+ipcMain.handle("data:get-location", async () => {
+  await ensureDataFiles();
+  return getDataLocation();
+});
+
+ipcMain.handle("data:set-directory", async (_event, dataDirectory) => {
+  return changeDataDirectory(dataDirectory);
+});
+
+ipcMain.handle("data:choose-directory", async event => {
+  return chooseDataDirectory(BrowserWindow.fromWebContents(event.sender));
+});
+
+ipcMain.handle("data:open-location-window", () => {
+  return openDataLocationWindow();
+});
+
 ipcMain.handle("todo:log", async (_event, message) => {
   await appendAgentLog(message);
   return true;
@@ -813,6 +1112,16 @@ ipcMain.handle("window:move-to", (event, x, y) => {
   };
   setClampedBounds(win, nextBounds);
   return win.getBounds();
+});
+
+ipcMain.handle("window:close-current", event => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) {
+    return false;
+  }
+
+  win.close();
+  return true;
 });
 
 ipcMain.handle("window:set-locked", (event, locked) => {

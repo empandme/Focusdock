@@ -7,7 +7,147 @@ const ACTIVE_SECTIONS = ["Todo", "Inbox"];
 const LEGACY_SECTIONS = ["Today", "Future", "Waiting", "Later"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const INLINE_DATE_PATTERN = /(?:^|\s)@(\d{4}-\d{2}-\d{2})\s*$/;
-const BRIEF_SECTION_ORDER = ["今天", "临近截止", "需要确认", "可选活动", "垃圾/忽略"];
+const BRIEF_SECTION_DEFINITIONS = [
+  { key: "today", titleKey: "brief.section.today", headings: ["今天", "Today"] },
+  { key: "approachingDeadlines", titleKey: "brief.section.approachingDeadlines", headings: ["临近截止", "Approaching Deadlines"] },
+  { key: "needsConfirmation", titleKey: "brief.section.needsConfirmation", headings: ["需要确认", "Needs Confirmation"] },
+  { key: "optionalEvents", titleKey: "brief.section.optionalEvents", headings: ["可选活动", "Optional Events"] },
+  { key: "trashIgnore", titleKey: "brief.section.trashIgnore", headings: ["垃圾/忽略", "Trash / Ignore"] }
+];
+const BRIEF_CANDIDATE_KEY = "todoCandidates";
+const BRIEF_CANDIDATE_SECTION = "可加入 Todo 候选";
+const BRIEF_CANDIDATE_HEADINGS = [BRIEF_CANDIDATE_SECTION, "Todo Candidates"];
+const SUPPORTED_LANGUAGES = ["en", "zh"];
+const LANGUAGE_STORAGE_KEY = "focusdock-language";
+const COPY = {
+  en: {
+    "app.taskSections": "Task sections",
+    "app.todo": "Todo",
+    "app.done": "Done",
+    "app.inbox": "Inbox",
+    "app.fileLocation": "File Location",
+    "app.openFileLocation": "Open file location",
+    "app.dailyBrief": "Daily Brief",
+    "app.openDailyBrief": "Open daily brief",
+    "app.enableLaunchAtLogin": "Enable launch at login",
+    "app.disableLaunchAtLogin": "Disable launch at login",
+    "app.lockWindow": "Lock window",
+    "app.unlockWindow": "Unlock window",
+    "app.writeTodo": "Write a new Todo",
+    "app.chooseTaskDate": "Choose task date",
+    "app.noDate": "No date",
+    "app.addTask": "Add task",
+    "app.completeTask": "Complete task",
+    "app.restoreTask": "Restore task",
+    "app.deleteCompletedTask": "Delete completed task",
+    "app.languageToggle": "Switch to Chinese",
+    "status.updatedExternally": "Updated externally, refreshed",
+    "status.saved": "Saved",
+    "status.addedItems": "Added {count} {itemLabel}",
+    "status.item": "item",
+    "status.items": "items",
+    "status.candidatesAlreadyExist": "Candidates already exist in Todo",
+    "status.launchAtLoginEnabled": "Launch at login enabled",
+    "status.launchAtLoginDisabled": "Launch at login disabled",
+    "brief.aria": "Daily Brief",
+    "brief.close": "Close brief",
+    "brief.titleSuffix": "Brief",
+    "brief.section.today": "Today",
+    "brief.section.approachingDeadlines": "Approaching Deadlines",
+    "brief.section.needsConfirmation": "Needs Confirmation",
+    "brief.section.optionalEvents": "Optional Events",
+    "brief.section.trashIgnore": "Trash / Ignore",
+    "brief.candidates": "Todo Candidates",
+    "brief.editCandidate": "Edit candidate {id}",
+    "brief.noCandidates": "No Todo candidates for today.",
+    "brief.noBriefTitle": "No brief yet today",
+    "brief.noBriefBody": "Once automation generates one, it will appear here without opening the Markdown file.",
+    "brief.dismissToday": "Do not remind me today",
+    "brief.addSelected": "Add {count} {itemLabel}",
+    "data.storage": "Storage",
+    "data.fileLocation": "File Location",
+    "data.close": "Close file location",
+    "data.todoFile": "Todo file",
+    "data.dataFolder": "Data folder",
+    "data.choose": "Choose",
+    "data.save": "Save",
+    "data.saving": "Saving",
+    "data.pathUpdated": "Path updated",
+    "data.pathUpdateFailed": "Path update failed"
+  },
+  zh: {
+    "app.taskSections": "任务分区",
+    "app.todo": "待办",
+    "app.done": "完成",
+    "app.inbox": "收件箱",
+    "app.fileLocation": "文件位置",
+    "app.openFileLocation": "打开文件位置",
+    "app.dailyBrief": "每日早报",
+    "app.openDailyBrief": "打开每日早报",
+    "app.enableLaunchAtLogin": "开启开机自启",
+    "app.disableLaunchAtLogin": "关闭开机自启",
+    "app.lockWindow": "锁定界面",
+    "app.unlockWindow": "解除锁定",
+    "app.writeTodo": "写下新的 Todo",
+    "app.chooseTaskDate": "选择任务日期",
+    "app.noDate": "不设置日期",
+    "app.addTask": "添加任务",
+    "app.completeTask": "完成任务",
+    "app.restoreTask": "恢复任务",
+    "app.deleteCompletedTask": "删除已完成任务",
+    "app.languageToggle": "切换到英文",
+    "status.updatedExternally": "外部已更新，已刷新",
+    "status.saved": "已保存",
+    "status.addedItems": "已加入 {count} 项",
+    "status.item": "项",
+    "status.items": "项",
+    "status.candidatesAlreadyExist": "候选已在 Todo 中",
+    "status.launchAtLoginEnabled": "已开启自启",
+    "status.launchAtLoginDisabled": "已关闭自启",
+    "brief.aria": "每日早报",
+    "brief.close": "关闭早报",
+    "brief.titleSuffix": "早报",
+    "brief.section.today": "今天",
+    "brief.section.approachingDeadlines": "临近截止",
+    "brief.section.needsConfirmation": "需要确认",
+    "brief.section.optionalEvents": "可选活动",
+    "brief.section.trashIgnore": "垃圾/忽略",
+    "brief.candidates": "可加入 Todo 候选",
+    "brief.editCandidate": "编辑候选 {id}",
+    "brief.noCandidates": "今天没有 Todo 候选。",
+    "brief.noBriefTitle": "今天还没有早报",
+    "brief.noBriefBody": "自动化生成后，这里会直接显示内容，不需要再打开 Markdown 文件。",
+    "brief.dismissToday": "今天不再提醒",
+    "brief.addSelected": "加入 {count} 项",
+    "data.storage": "存储",
+    "data.fileLocation": "文件位置",
+    "data.close": "关闭文件位置",
+    "data.todoFile": "Todo 文件",
+    "data.dataFolder": "数据文件夹",
+    "data.choose": "选择",
+    "data.save": "保存",
+    "data.saving": "保存中",
+    "data.pathUpdated": "路径已更新",
+    "data.pathUpdateFailed": "路径更新失败"
+  }
+};
+
+function getInitialLanguage() {
+  const storedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  if (SUPPORTED_LANGUAGES.includes(storedLanguage)) {
+    return storedLanguage;
+  }
+
+  return navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+function translate(language, key, replacements = {}) {
+  const template = COPY[language]?.[key] || COPY.en[key] || key;
+  return Object.entries(replacements).reduce(
+    (next, [name, value]) => next.split(`{${name}}`).join(String(value)),
+    template
+  );
+}
 
 function normalizeSection(section) {
   if (LEGACY_SECTIONS.includes(section)) {
@@ -178,6 +318,14 @@ function serializeTodo(sections) {
   return `${lines.join("\n")}\n`;
 }
 
+function normalizeBriefHeading(heading) {
+  if (BRIEF_CANDIDATE_HEADINGS.includes(heading)) {
+    return BRIEF_CANDIDATE_KEY;
+  }
+
+  return BRIEF_SECTION_DEFINITIONS.find(section => section.headings.includes(heading))?.key || heading;
+}
+
 function parseDailyBrief(markdown) {
   const sections = {};
   const candidates = [];
@@ -186,8 +334,8 @@ function parseDailyBrief(markdown) {
   for (const line of markdown.split(/\r?\n/)) {
     const heading = line.match(/^##\s+(.+?)\s*$/);
     if (heading) {
-      current = heading[1].trim();
-      if (!sections[current]) {
+      current = normalizeBriefHeading(heading[1].trim());
+      if (current !== BRIEF_CANDIDATE_KEY && !sections[current]) {
         sections[current] = [];
       }
       continue;
@@ -198,7 +346,7 @@ function parseDailyBrief(markdown) {
     }
 
     const candidate = line.match(/^(\d+)\.\s+`([^`]+)`/);
-    if (current === "可加入 Todo 候选" && candidate) {
+    if (current === BRIEF_CANDIDATE_KEY && candidate) {
       candidates.push({
         id: candidate[1],
         text: candidate[2].trim()
@@ -207,7 +355,7 @@ function parseDailyBrief(markdown) {
     }
 
     const item = line.match(/^\d+\.\s+(.+?)\s*$/);
-    if (item && current !== "可加入 Todo 候选") {
+    if (item && current !== BRIEF_CANDIDATE_KEY) {
       sections[current].push(item[1].trim());
     }
   }
@@ -230,6 +378,7 @@ function getCandidateDrafts(markdown) {
 }
 
 function DailyBriefOverlay({
+  t,
   brief,
   selectedIds,
   candidateDrafts,
@@ -242,16 +391,17 @@ function DailyBriefOverlay({
   const parsedBrief = useMemo(() => parseDailyBrief(brief?.markdown || ""), [brief]);
   const hasContent = Boolean(brief?.exists && brief.markdown);
   const selectedCount = selectedIds.length;
+  const itemLabel = selectedCount === 1 ? t("status.item") : t("status.items");
 
   return (
-    <div className="brief-overlay" role="dialog" aria-modal="true" aria-label="每日早报">
+    <div className="brief-overlay" role="dialog" aria-modal="true" aria-label={t("brief.aria")}>
       <div className="brief-panel">
         <header className="brief-header">
           <div>
-            <p className="brief-kicker">Daily Brief</p>
-            <h1>{brief?.date || getLocalDateString()} 早报</h1>
+            <p className="brief-kicker">{t("app.dailyBrief")}</p>
+            <h1>{brief?.date || getLocalDateString()} {t("brief.titleSuffix")}</h1>
           </div>
-          <button className="brief-icon-button" aria-label="关闭早报" onClick={onClose}>
+          <button className="brief-icon-button" aria-label={t("brief.close")} onClick={onClose}>
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <path d="m4.2 3.1 3.8 3.8 3.8-3.8 1.1 1.1L9.1 8l3.8 3.8-1.1 1.1L8 9.1l-3.8 3.8-1.1-1.1L6.9 8 3.1 4.2z" />
             </svg>
@@ -261,13 +411,13 @@ function DailyBriefOverlay({
         <div className="brief-body">
           {hasContent ? (
             <>
-              {BRIEF_SECTION_ORDER.map(section => (
-                parsedBrief.sections[section]?.length > 0 && (
-                  <section className="brief-section" key={section}>
-                    <h2>{section}</h2>
+              {BRIEF_SECTION_DEFINITIONS.map(section => (
+                parsedBrief.sections[section.key]?.length > 0 && (
+                  <section className="brief-section" key={section.key}>
+                    <h2>{t(section.titleKey)}</h2>
                     <ul>
-                      {parsedBrief.sections[section].map((item, index) => (
-                        <li key={`${section}-${index}`}>{item}</li>
+                      {parsedBrief.sections[section.key].map((item, index) => (
+                        <li key={`${section.key}-${index}`}>{item}</li>
                       ))}
                     </ul>
                   </section>
@@ -275,7 +425,7 @@ function DailyBriefOverlay({
               ))}
 
               <section className="brief-section brief-candidates">
-                <h2>可加入 Todo 候选</h2>
+                <h2>{t("brief.candidates")}</h2>
                 {parsedBrief.candidates.length > 0 ? (
                   <div className="candidate-list">
                     {parsedBrief.candidates.map(candidate => (
@@ -288,7 +438,7 @@ function DailyBriefOverlay({
                         <span className="candidate-number">{candidate.id}</span>
                         <input
                           className="candidate-text-input"
-                          aria-label={`编辑候选 ${candidate.id}`}
+                          aria-label={t("brief.editCandidate", { id: candidate.id })}
                           value={candidateDrafts[candidate.id] ?? candidate.text}
                           onChange={event => onCandidateTextChange(candidate.id, event.target.value)}
                           onFocus={() => {
@@ -301,28 +451,28 @@ function DailyBriefOverlay({
                     ))}
                   </div>
                 ) : (
-                  <p className="brief-empty">今天没有可加入 Todo 的候选。</p>
+                  <p className="brief-empty">{t("brief.noCandidates")}</p>
                 )}
               </section>
             </>
           ) : (
             <div className="brief-empty-state">
-              <h2>今天还没有早报</h2>
-              <p>自动化生成后，这里会直接显示内容，不需要再打开 Markdown 文件。</p>
+              <h2>{t("brief.noBriefTitle")}</h2>
+              <p>{t("brief.noBriefBody")}</p>
             </div>
           )}
         </div>
 
         <footer className="brief-footer">
           <button className="brief-secondary-button" onClick={onDismissToday}>
-            今天不再提醒
+            {t("brief.dismissToday")}
           </button>
           <button
             className="brief-primary-button"
             disabled={!hasContent || selectedCount === 0}
             onClick={() => onAddSelected(parsedBrief.candidates)}
           >
-            加入 {selectedCount} 项
+            {t("brief.addSelected", { count: selectedCount, itemLabel })}
           </button>
         </footer>
       </div>
@@ -330,7 +480,121 @@ function DailyBriefOverlay({
   );
 }
 
-function TaskItem({ task, section, onToggle, onTextChange, onDeleteDone }) {
+function DataLocationSettings({ t, onClose }) {
+  const [location, setLocation] = useState(null);
+  const [draftDirectory, setDraftDirectory] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [panelStatus, setPanelStatus] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadLocation = async () => {
+      const nextLocation = await window.todoShell.getDataLocation();
+      if (!mounted) {
+        return;
+      }
+
+      setLocation(nextLocation);
+      setDraftDirectory(nextLocation.dataDirectory || "");
+    };
+
+    loadLocation();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const showPanelStatus = useCallback(message => {
+    setPanelStatus(message);
+    window.setTimeout(() => setPanelStatus(""), 1800);
+  }, []);
+
+  const chooseDataDirectory = useCallback(async () => {
+    setSaving(true);
+    try {
+      const nextLocation = await window.todoShell.chooseDataDirectory();
+      if (!nextLocation.canceled) {
+        setLocation(nextLocation);
+        setDraftDirectory(nextLocation.dataDirectory || "");
+        showPanelStatus(t("data.pathUpdated"));
+      }
+    } catch {
+      showPanelStatus(t("data.pathUpdateFailed"));
+    } finally {
+      setSaving(false);
+    }
+  }, [showPanelStatus, t]);
+
+  const saveDataDirectory = useCallback(async () => {
+    const nextDirectory = draftDirectory.trim();
+    if (!nextDirectory) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const nextLocation = await window.todoShell.setDataDirectory(nextDirectory);
+      setLocation(nextLocation);
+      setDraftDirectory(nextLocation.dataDirectory || "");
+      showPanelStatus(t("data.pathUpdated"));
+    } catch {
+      showPanelStatus(t("data.pathUpdateFailed"));
+    } finally {
+      setSaving(false);
+    }
+  }, [draftDirectory, showPanelStatus, t]);
+
+  return (
+    <main className="data-location-window">
+      <div className="data-location-panel">
+        <header className="data-location-header">
+          <div>
+            <p className="data-location-kicker">{t("data.storage")}</p>
+            <h1>{t("data.fileLocation")}</h1>
+          </div>
+          <button className="data-location-icon-button" aria-label={t("data.close")} onClick={onClose}>
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="m4.2 3.1 3.8 3.8 3.8-3.8 1.1 1.1L9.1 8l3.8 3.8-1.1 1.1L8 9.1l-3.8 3.8-1.1-1.1L6.9 8 3.1 4.2z" />
+            </svg>
+          </button>
+        </header>
+
+        <div className="data-location-body">
+          <label className="data-location-field">
+            <span>{t("data.todoFile")}</span>
+            <textarea value={location?.todoPath || ""} readOnly rows={3} />
+          </label>
+
+          <label className="data-location-field">
+            <span>{t("data.dataFolder")}</span>
+            <input
+              value={draftDirectory}
+              onChange={event => setDraftDirectory(event.target.value)}
+              spellCheck="false"
+            />
+          </label>
+        </div>
+
+        <footer className="data-location-footer">
+          <span className="data-location-status">{panelStatus}</span>
+          <button className="data-location-secondary-button" onClick={chooseDataDirectory} disabled={saving}>
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M1.8 4.4c0-.8.6-1.4 1.4-1.4h3.1l1.3 1.4h5.2c.8 0 1.4.6 1.4 1.4v6.1c0 .8-.6 1.4-1.4 1.4H3.2c-.8 0-1.4-.6-1.4-1.4z" />
+            </svg>
+            {t("data.choose")}
+          </button>
+          <button className="data-location-primary-button" onClick={saveDataDirectory} disabled={saving || !draftDirectory.trim()}>
+            {saving ? t("data.saving") : t("data.save")}
+          </button>
+        </footer>
+      </div>
+    </main>
+  );
+}
+
+function TaskItem({ t, task, section, onToggle, onTextChange, onDeleteDone }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.text);
   const isDoneSection = section === "Done";
@@ -351,7 +615,7 @@ function TaskItem({ task, section, onToggle, onTextChange, onDeleteDone }) {
     <div className={`task-row ${task.checked ? "is-done" : ""} ${task.dueDate ? "has-date" : ""} ${isDoneSection ? "can-delete" : ""}`}>
       <button
         className="check-button"
-        aria-label={task.checked ? "恢复任务" : "完成任务"}
+        aria-label={task.checked ? t("app.restoreTask") : t("app.completeTask")}
         onClick={() => onToggle(section, task.id)}
       >
         <span />
@@ -393,7 +657,7 @@ function TaskItem({ task, section, onToggle, onTextChange, onDeleteDone }) {
       {isDoneSection && (
         <button
           className="delete-done-button"
-          aria-label="删除已完成任务"
+          aria-label={t("app.deleteCompletedTask")}
           onMouseDown={event => event.preventDefault()}
           onClick={() => onDeleteDone(task.id)}
         >
@@ -406,7 +670,7 @@ function TaskItem({ task, section, onToggle, onTextChange, onDeleteDone }) {
   );
 }
 
-function App() {
+function App({ language, t, onToggleLanguage }) {
   const [sections, setSections] = useState(emptySections);
   const [activeTab, setActiveTab] = useState("Todo");
   const [newTask, setNewTask] = useState("");
@@ -604,7 +868,7 @@ function App() {
       if (result.conflict) {
         currentMarkdownRef.current = result.markdown;
         setSections(parseTodo(result.markdown));
-        setStatus("外部已更新，已刷新");
+        setStatus(t("status.updatedExternally"));
         window.setTimeout(() => setStatus(""), 1500);
         return;
       }
@@ -613,10 +877,10 @@ function App() {
       if (logMessage) {
         await window.todoShell.appendLog(logMessage);
       }
-      setStatus("已保存");
+      setStatus(t("status.saved"));
       window.setTimeout(() => setStatus(""), 1200);
     }, 180);
-  }, []);
+  }, [t]);
 
   const addTask = useCallback(() => {
     const text = newTask.trim();
@@ -642,7 +906,7 @@ function App() {
     };
 
     setNewTask("");
-    saveSections(nextSections, `添加任务到 ${targetSection}：${parsed.text}${dueDate ? ` @${dueDate}` : ""}`);
+    saveSections(nextSections, `Added task to ${targetSection}: ${parsed.text}${dueDate ? ` @${dueDate}` : ""}`);
   }, [newTask, newTaskDate, newTaskDateMode, saveSections, sections]);
 
   const toggleTask = useCallback((section, taskId) => {
@@ -665,7 +929,7 @@ function App() {
         },
         ...nextSections[targetSection]
       ];
-      saveSections(nextSections, `恢复任务到 ${targetSection}：${task.text}`);
+      saveSections(nextSections, `Restored task to ${targetSection}: ${task.text}`);
       return;
     }
 
@@ -677,7 +941,7 @@ function App() {
       },
       ...sections.Done
     ];
-    saveSections(nextSections, `完成任务：${task.text}`);
+    saveSections(nextSections, `Completed task: ${task.text}`);
   }, [saveSections, sections]);
 
   const changeTaskText = useCallback((section, taskId, text) => {
@@ -693,7 +957,7 @@ function App() {
       ))
     };
 
-    saveSections(nextSections, `更新任务文字：${text}`);
+    saveSections(nextSections, `Updated task text: ${text}`);
   }, [saveSections, sections]);
 
   const deleteDoneTask = useCallback(taskId => {
@@ -707,7 +971,7 @@ function App() {
       Done: sections.Done.filter(item => item.id !== taskId)
     };
 
-    saveSections(nextSections, `删除已完成任务：${task.text}`);
+    saveSections(nextSections, `Deleted completed task: ${task.text}`);
   }, [saveSections, sections]);
 
   const openDailyBrief = useCallback(async () => {
@@ -718,6 +982,12 @@ function App() {
     setBriefOpen(true);
     window.todoShell.setMousePassthrough(false);
     window.todoShell.setBriefWindowMode(true);
+  }, []);
+
+  const openDataLocation = useCallback(async () => {
+    setLocked(false);
+    window.todoShell.setMousePassthrough(false);
+    await window.todoShell.openDataLocationWindow();
   }, []);
 
   const closeDailyBrief = useCallback(() => {
@@ -788,11 +1058,14 @@ function App() {
     });
 
     if (addedCount > 0) {
-      saveSections(nextSections, `从每日早报加入 ${addedCount} 项：${selectedCandidates.map(candidate => candidate.text).join("；")}`);
-      setStatus(`已加入 ${addedCount} 项`);
+      saveSections(nextSections, `Added ${addedCount} from daily brief: ${selectedCandidates.map(candidate => candidate.text).join("; ")}`);
+      setStatus(t("status.addedItems", {
+        count: addedCount,
+        itemLabel: addedCount === 1 ? t("status.item") : t("status.items")
+      }));
       window.setTimeout(() => setStatus(""), 1400);
     } else {
-      setStatus("候选已在 Todo 中");
+      setStatus(t("status.candidatesAlreadyExist"));
       window.setTimeout(() => setStatus(""), 1400);
     }
 
@@ -802,14 +1075,14 @@ function App() {
     }
 
     closeDailyBrief();
-  }, [briefCandidateDrafts, closeDailyBrief, dailyBrief, saveSections, sections, selectedBriefCandidates]);
+  }, [briefCandidateDrafts, closeDailyBrief, dailyBrief, saveSections, sections, selectedBriefCandidates, t]);
 
   const toggleLaunchAtLogin = useCallback(async () => {
     const settings = await window.todoShell.setLaunchAtLogin(!launchAtLogin);
     setLaunchAtLogin(Boolean(settings.launchAtLogin));
-    setStatus(settings.launchAtLogin ? "已开启自启" : "已关闭自启");
+    setStatus(settings.launchAtLogin ? t("status.launchAtLoginEnabled") : t("status.launchAtLoginDisabled"));
     window.setTimeout(() => setStatus(""), 1200);
-  }, [launchAtLogin]);
+  }, [launchAtLogin, t]);
 
   const openDatePicker = useCallback(() => {
     setNewTaskDateMode("dated");
@@ -846,7 +1119,7 @@ function App() {
         >
           <div className="panel-title-area">
             <p className="app-name">FocusDock</p>
-            <div className="tabs" aria-label="任务分区">
+            <div className="tabs" aria-label={t("app.taskSections")}>
               <button
                 className={activeTab === "Todo" ? "active" : ""}
                 onClick={() => setActiveTab("Todo")}
@@ -867,9 +1140,27 @@ function App() {
 
           <div className="window-actions">
             <button
+              className="language-button"
+              aria-label={t("app.languageToggle")}
+              title={t("app.languageToggle")}
+              onClick={onToggleLanguage}
+            >
+              {language === "zh" ? "EN" : "中"}
+            </button>
+            <button
+              className="data-location-button"
+              aria-label={t("app.openFileLocation")}
+              title={t("app.fileLocation")}
+              onClick={openDataLocation}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M1.8 4.4c0-.8.6-1.4 1.4-1.4h3.1l1.3 1.4h5.2c.8 0 1.4.6 1.4 1.4v6.1c0 .8-.6 1.4-1.4 1.4H3.2c-.8 0-1.4-.6-1.4-1.4z" />
+              </svg>
+            </button>
+            <button
               className="brief-button"
-              aria-label="打开每日早报"
-              title="每日早报"
+              aria-label={t("app.openDailyBrief")}
+              title={t("app.dailyBrief")}
               onClick={openDailyBrief}
             >
               <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -882,9 +1173,9 @@ function App() {
             </button>
             <button
               className="launch-at-login-button"
-              aria-label={launchAtLogin ? "关闭开机自启" : "开启开机自启"}
+              aria-label={launchAtLogin ? t("app.disableLaunchAtLogin") : t("app.enableLaunchAtLogin")}
               aria-pressed={launchAtLogin}
-              title={launchAtLogin ? "关闭开机自启" : "开启开机自启"}
+              title={launchAtLogin ? t("app.disableLaunchAtLogin") : t("app.enableLaunchAtLogin")}
               onClick={toggleLaunchAtLogin}
             >
               <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -896,7 +1187,7 @@ function App() {
             <button
               ref={lockButtonRef}
               className="lock-window-button"
-              aria-label={locked ? "解除锁定" : "锁定界面"}
+              aria-label={locked ? t("app.unlockWindow") : t("app.lockWindow")}
               aria-pressed={locked}
               onClick={() => setLocked(isLocked => !isLocked)}
             >
@@ -911,9 +1202,10 @@ function App() {
         <div className="task-list" ref={taskListRef}>
           {visibleSections.map(section => (
             <section className="task-section" key={section}>
-              {activeTab === "Todo" && <h2>{section}</h2>}
+              {activeTab === "Todo" && <h2>{section === "Inbox" ? t("app.inbox") : t("app.todo")}</h2>}
               {(sections[section] || []).map(task => (
                 <TaskItem
+                  t={t}
                   key={task.id}
                   task={task}
                   section={section}
@@ -933,15 +1225,15 @@ function App() {
               <input
                 className="new-task-input"
                 value={newTask}
-                placeholder="写下新的 Todo"
+                placeholder={t("app.writeTodo")}
                 onChange={event => setNewTask(event.target.value)}
               />
               <span className="date-picker-field">
                 <button
                   className="date-picker-button"
-                  aria-label="选择任务日期"
+                  aria-label={t("app.chooseTaskDate")}
                   aria-pressed={newTaskDateMode === "dated"}
-                  title={newTaskDateMode === "dated" ? newTaskDate : "选择任务日期"}
+                  title={newTaskDateMode === "dated" ? newTaskDate : t("app.chooseTaskDate")}
                   onClick={openDatePicker}
                 >
                   <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -966,13 +1258,20 @@ function App() {
               </span>
               <button
                 className="date-none-button"
-                aria-label="不设置日期"
+                aria-label={t("app.noDate")}
+                title={t("app.noDate")}
                 aria-pressed={newTaskDateMode === "none"}
                 onClick={() => setNewTaskDateMode(mode => mode === "none" ? "dated" : "none")}
               >
-                无
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <rect x="2.5" y="3.6" width="11" height="10" rx="1.4" />
+                  <path d="M5.2 2.2v3" />
+                  <path d="M10.8 2.2v3" />
+                  <path d="M2.5 6.5h11" />
+                  <path d="M3 13 13 3" />
+                </svg>
               </button>
-              <button onClick={addTask} aria-label="添加任务">
+              <button onClick={addTask} aria-label={t("app.addTask")}>
                 <svg viewBox="0 0 16 16" aria-hidden="true">
                   <path d="M7.25 2h1.5v5.25H14v1.5H8.75V14h-1.5V8.75H2v-1.5h5.25z" />
                 </svg>
@@ -984,6 +1283,7 @@ function App() {
         <div className="save-status">{status}</div>
         {briefOpen && (
           <DailyBriefOverlay
+            t={t}
             brief={dailyBrief}
             selectedIds={selectedBriefCandidates}
             candidateDrafts={briefCandidateDrafts}
@@ -999,8 +1299,27 @@ function App() {
   );
 }
 
+function Root() {
+  const view = new URLSearchParams(window.location.search).get("view");
+  const [language, setLanguage] = useState(getInitialLanguage);
+  const t = useCallback((key, replacements) => translate(language, key, replacements), [language]);
+  const toggleLanguage = useCallback(() => {
+    setLanguage(currentLanguage => {
+      const nextLanguage = currentLanguage === "zh" ? "en" : "zh";
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
+      return nextLanguage;
+    });
+  }, []);
+
+  if (view === "data-location") {
+    return <DataLocationSettings t={t} onClose={() => window.todoShell.closeCurrentWindow()} />;
+  }
+
+  return <App language={language} t={t} onToggleLanguage={toggleLanguage} />;
+}
+
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
+    <Root />
   </React.StrictMode>
 );
