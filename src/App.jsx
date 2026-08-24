@@ -43,6 +43,8 @@ const COPY = {
     "app.openFileLocation": "Open file location",
     "app.dailyBrief": "Daily Brief",
     "app.openDailyBrief": "Open daily brief",
+    "app.userGuide": "Tutorial",
+    "app.openUserGuide": "Open tutorial",
     "app.enableLaunchAtLogin": "Enable launch at login",
     "app.disableLaunchAtLogin": "Disable launch at login",
     "app.lockWindow": "Lock window",
@@ -98,6 +100,8 @@ const COPY = {
     "app.openFileLocation": "打开文件位置",
     "app.dailyBrief": "每日早报",
     "app.openDailyBrief": "打开每日早报",
+    "app.userGuide": "教程",
+    "app.openUserGuide": "打开教程",
     "app.enableLaunchAtLogin": "开启开机自启",
     "app.disableLaunchAtLogin": "关闭开机自启",
     "app.lockWindow": "锁定界面",
@@ -430,12 +434,15 @@ function getCandidateDrafts(markdown) {
 
 function DailyBriefOverlay({
   t,
+  language,
   brief,
   selectedIds,
   candidateDrafts,
   onToggleCandidate,
   onCandidateTextChange,
   onAddSelected,
+  onToggleLanguage,
+  onOpenUserGuide,
   onClose,
   onDismissToday
 }) {
@@ -452,11 +459,33 @@ function DailyBriefOverlay({
             <p className="brief-kicker">{t("app.dailyBrief")}</p>
             <h1>{brief?.date || getLocalDateString()} {t("brief.titleSuffix")}</h1>
           </div>
-          <button className="brief-icon-button" aria-label={t("brief.close")} onClick={onClose}>
-            <svg viewBox="0 0 16 16" aria-hidden="true">
-              <path d="m4.2 3.1 3.8 3.8 3.8-3.8 1.1 1.1L9.1 8l3.8 3.8-1.1 1.1L8 9.1l-3.8 3.8-1.1-1.1L6.9 8 3.1 4.2z" />
-            </svg>
-          </button>
+          <div className="brief-actions">
+            <button
+              className="brief-language-button"
+              aria-label={t("app.languageToggle")}
+              title={t("app.languageToggle")}
+              onClick={onToggleLanguage}
+            >
+              {language === "zh" ? "EN" : "中"}
+            </button>
+            <button
+              className="brief-icon-button"
+              aria-label={t("app.openUserGuide")}
+              title={t("app.userGuide")}
+              onClick={onOpenUserGuide}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="8" cy="8" r="6" />
+                <path d="M6.4 6.2a1.8 1.8 0 1 1 2.9 1.4c-.7.5-1.1.9-1.1 1.8" />
+                <path d="M8.2 11.9h.01" />
+              </svg>
+            </button>
+            <button className="brief-icon-button brief-close-button" aria-label={t("brief.close")} onClick={onClose}>
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path d="m4.2 3.1 3.8 3.8 3.8-3.8 1.1 1.1L9.1 8l3.8 3.8-1.1 1.1L8 9.1l-3.8 3.8-1.1-1.1L6.9 8 3.1 4.2z" />
+              </svg>
+            </button>
+          </div>
         </header>
 
         <div className="brief-body">
@@ -1035,6 +1064,10 @@ function App({ language, t, onToggleLanguage }) {
     window.todoShell.setBriefWindowMode(true);
   }, []);
 
+  const openUserGuide = useCallback(() => {
+    window.todoShell.openUserGuide();
+  }, []);
+
   const openDataLocation = useCallback(async () => {
     setLocked(false);
     window.todoShell.setMousePassthrough(false);
@@ -1191,14 +1224,6 @@ function App({ language, t, onToggleLanguage }) {
 
           <div className="window-actions">
             <button
-              className="language-button"
-              aria-label={t("app.languageToggle")}
-              title={t("app.languageToggle")}
-              onClick={onToggleLanguage}
-            >
-              {language === "zh" ? "EN" : "中"}
-            </button>
-            <button
               className="data-location-button"
               aria-label={t("app.openFileLocation")}
               title={t("app.fileLocation")}
@@ -1335,12 +1360,15 @@ function App({ language, t, onToggleLanguage }) {
         {briefOpen && (
           <DailyBriefOverlay
             t={t}
+            language={language}
             brief={dailyBrief}
             selectedIds={selectedBriefCandidates}
             candidateDrafts={briefCandidateDrafts}
             onToggleCandidate={toggleBriefCandidate}
             onCandidateTextChange={changeBriefCandidateText}
             onAddSelected={addBriefCandidates}
+            onToggleLanguage={onToggleLanguage}
+            onOpenUserGuide={openUserGuide}
             onClose={closeDailyBrief}
             onDismissToday={dismissDailyBriefToday}
           />

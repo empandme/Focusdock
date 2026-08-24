@@ -1,13 +1,10 @@
-const { app, BrowserWindow, dialog, ipcMain, screen } = require("electron");
-const { execFile } = require("node:child_process");
+const { app, BrowserWindow, dialog, ipcMain, screen, shell } = require("electron");
 const fsSync = require("node:fs");
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const { promisify } = require("node:util");
 
 const projectRootDir = path.resolve(__dirname, "..");
 const appDisplayName = "FocusDock";
-const legacyAppDisplayNames = ["Simple Todo List with AI", "William Todo List Demo", "markdown-todo-shell"];
 const defaultWindowWidth = 360;
 const defaultWindowHeight = 360;
 const DEFAULT_TODO_MARKDOWN = {
@@ -83,7 +80,6 @@ let todoWatchTimer = null;
 let todoLastSignature = null;
 let todoWriteQueue = Promise.resolve();
 let dataLocationWindow = null;
-const execFileAsync = promisify(execFile);
 const NATIVE_COPY = {
   en: {
     chooseTodoDataFolderTitle: "Choose Todo Data Folder",
@@ -145,11 +141,6 @@ function getDefaultSharedTodoDirectory() {
 
 function getDefaultSharedTodoPath() {
   return path.join(getDefaultSharedTodoDirectory(), "todo.md");
-}
-
-function getLegacyConfigPaths() {
-  const appDataDir = app.getPath("appData");
-  return legacyAppDisplayNames.map(name => path.join(appDataDir, name, "config.json"));
 }
 
 function getSeedDataDir() {
@@ -243,17 +234,6 @@ async function readValidConfig(configPath) {
   return null;
 }
 
-async function readMigratedConfig() {
-  for (const configPath of getLegacyConfigPaths()) {
-    const config = await readValidConfig(configPath);
-    if (config) {
-      return config;
-    }
-  }
-
-  return null;
-}
-
 async function chooseInitialDataDirectory() {
   if (!app.isPackaged) {
     return getDefaultSharedTodoDirectory();
@@ -296,11 +276,6 @@ async function ensureConfig() {
   const existingConfig = await readValidConfig(getConfigPath());
   if (existingConfig) {
     return writeConfig(existingConfig);
-  }
-
-  const migratedConfig = await readMigratedConfig();
-  if (migratedConfig) {
-    return writeConfig(migratedConfig);
   }
 
   const selectedDirectory = await chooseInitialDataDirectory();
@@ -367,6 +342,13 @@ async function getDailyBrief(date = getLocalDateString()) {
   };
 }
 
+async function openUserGuide() {
+  const guidePath = app.isPackaged
+    ? path.join(process.resourcesPath, "USER_GUIDE.md")
+    : path.join(getAppRootDir(), "USER_GUIDE.md");
+  return shell.openPath(guidePath);
+}
+
 async function fileExists(filePath) {
   try {
     await fs.access(filePath);
@@ -406,28 +388,38 @@ async function copyFileIfMissingOrDefault(sourcePath, targetPath) {
   await fs.copyFile(sourcePath, targetPath);
 }
 
-async function copyDirectoryIfMissingOrDefault(sourceDirectory, targetDirectory) {
-  if (!(await fileExists(sourceDirectory))) {
+async function copyDailyBriefFilesIfMissingOrDefault(sourceDirectory, targetDirectory) {
+  const sourceBriefsDirectory = path.join(sourceDirectory, "daily-briefs");
+  if (!(await fileExists(sourceBriefsDirectory))) {
     return;
   }
 
-  await fs.mkdir(targetDirectory, { recursive: true });
-  const entries = await fs.readdir(sourceDirectory, { withFileTypes: true });
+  await fs.mkdir(path.join(targetDirectory, "daily-briefs"), { recursive: true });
+  const entries = await fs.readdir(sourceBriefsDirectory, { withFileTypes: true });
 
   for (const entry of entries) {
-    if (entry.name === ".DS_Store") {
+    if (!entry.isFile() || !/^(README|\d{4}-\d{2}-\d{2})\.md$/.test(entry.name)) {
       continue;
     }
 
-    const sourcePath = path.join(sourceDirectory, entry.name);
-    const targetPath = path.join(targetDirectory, entry.name);
-
-    if (entry.isDirectory()) {
-      await copyDirectoryIfMissingOrDefault(sourcePath, targetPath);
-    } else if (entry.isFile()) {
-      await copyFileIfMissingOrDefault(sourcePath, targetPath);
-    }
+    await copyFileIfMissingOrDefault(
+      path.join(sourceBriefsDirectory, entry.name),
+      path.join(targetDirectory, "daily-briefs", entry.name)
+    );
   }
+}
+
+async function copyFocusDockDataIfMissingOrDefault(sourceDirectory, targetDirectory) {
+  const fileNames = ["todo.md", "README.md", "rules.md", "archive.md", "agent-log.md"];
+
+  for (const fileName of fileNames) {
+    await copyFileIfMissingOrDefault(
+      path.join(sourceDirectory, fileName),
+      path.join(targetDirectory, fileName)
+    );
+  }
+
+  await copyDailyBriefFilesIfMissingOrDefault(sourceDirectory, targetDirectory);
 }
 
 async function readSeedFile(relativePath, fallback, replacements = {}) {
@@ -454,18 +446,6 @@ async function readSeedFile(relativePath, fallback, replacements = {}) {
 }
 
 async function readInitialTodoMarkdown() {
-  const todoPath = await getTodoPath();
-  const previousPackagedTodoPaths = [
-    path.join(getDataDir(), "todo.md"),
-    ...legacyAppDisplayNames.map(name => path.join(app.getPath("appData"), name, "todo.md"))
-  ];
-
-  for (const previousPackagedTodoPath of previousPackagedTodoPaths) {
-    if (previousPackagedTodoPath !== todoPath && await fileExists(previousPackagedTodoPath)) {
-      return fs.readFile(previousPackagedTodoPath, "utf8");
-    }
-  }
-
   return readSeedFile("todo.md", getDefaultTodoMarkdown());
 }
 
@@ -530,7 +510,7 @@ async function changeDataDirectory(dataDirectory) {
     : resolvedInputPath;
 
   if (path.resolve(currentDataDirectory) !== path.resolve(nextDataDirectory)) {
-    await copyDirectoryIfMissingOrDefault(currentDataDirectory, nextDataDirectory);
+    await copyFocusDockDataIfMissingOrDefault(currentDataDirectory, nextDataDirectory);
   }
 
   await updateConfig({
@@ -579,29 +559,11 @@ async function appendAgentLog(message) {
   await fs.appendFile(logPath, `\n## ${stamp}\n\n- ${message}\n`, "utf8");
 }
 
-async function cleanupLegacyLoginItems() {
-  if (!app.isPackaged || process.platform !== "darwin") {
-    return;
-  }
-
-  for (const legacyName of legacyAppDisplayNames) {
-    try {
-      await execFileAsync("osascript", [
-        "-e",
-        `tell application "System Events" to if exists login item "${legacyName}" then delete login item "${legacyName}"`
-      ]);
-    } catch {
-      // macOS may deny Automation access; failing to clean a legacy login item should not block launch.
-    }
-  }
-}
-
 async function applyLaunchAtLoginSetting(enabled) {
   if (!app.isPackaged || process.platform !== "darwin") {
     return;
   }
 
-  await cleanupLegacyLoginItems();
   app.setLoginItemSettings({
     openAtLogin: Boolean(enabled),
     openAsHidden: false,
@@ -1064,7 +1026,6 @@ function revealExistingOrCreateWindow() {
 
 app.whenReady().then(async () => {
   try {
-    await cleanupLegacyLoginItems();
     await ensureDataFiles();
     await syncLaunchAtLoginRegistration();
     await startTodoWatcher();
@@ -1140,6 +1101,10 @@ ipcMain.handle("brief:mark-seen", async (_event, date) => {
   const targetDate = /^\d{4}-\d{2}-\d{2}$/.test(date || "") ? date : getLocalDateString();
   await updateConfig({ dailyBriefSeenDate: targetDate });
   return true;
+});
+
+ipcMain.handle("help:open-user-guide", async () => {
+  return openUserGuide();
 });
 
 ipcMain.handle("launch:get-settings", async () => {

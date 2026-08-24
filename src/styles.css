@@ -71,10 +71,10 @@ button {
 
 .panel-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 16px 22px 10px;
+  gap: 12px;
+  padding: 15px 20px 10px;
   cursor: grab;
   -webkit-app-region: no-drag;
   user-select: none;
@@ -136,9 +136,9 @@ button {
 .window-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-right: -6px;
-  padding-top: 10px;
+  gap: 7px;
+  margin-right: -3px;
+  padding-top: 0;
   -webkit-app-region: no-drag;
 }
 
@@ -158,16 +158,6 @@ button {
   height: 30px;
   border-radius: 6px;
   color: rgba(255, 255, 255, 0.78);
-}
-
-.window-actions .language-button {
-  width: 25px;
-  height: 24px;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.64);
-  font-size: 10px;
-  font-weight: 860;
 }
 
 .window-actions .launch-at-login-button,
@@ -236,11 +226,18 @@ button {
 
 .brief-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 18px 20px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.brief-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
 }
 
 .brief-kicker {
@@ -258,7 +255,8 @@ button {
   line-height: 1.2;
 }
 
-.brief-icon-button {
+.brief-icon-button,
+.brief-language-button {
   display: inline-grid;
   width: 30px;
   height: 30px;
@@ -271,7 +269,16 @@ button {
   cursor: pointer;
 }
 
-.brief-icon-button:hover {
+.brief-language-button {
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  font-weight: 860;
+}
+
+.brief-icon-button:hover,
+.brief-language-button:hover {
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.94);
 }
@@ -279,7 +286,16 @@ button {
 .brief-icon-button svg {
   width: 15px;
   height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.45;
+}
+
+.brief-close-button svg {
   fill: currentColor;
+  stroke: none;
 }
 
 .brief-body {

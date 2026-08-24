@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("todoShell", {
   appendLog: message => ipcRenderer.invoke("todo:log", message),
   readTodayBrief: () => ipcRenderer.invoke("brief:read-today"),
   markBriefSeen: date => ipcRenderer.invoke("brief:mark-seen", date),
+  openUserGuide: () => ipcRenderer.invoke("help:open-user-guide"),
   onTodoChanged: callback => {
     const listener = () => callback();
     ipcRenderer.on("todo:changed", listener);
