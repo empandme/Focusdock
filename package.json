@@ -1,6 +1,6 @@
 {
   "name": "focusdock",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "productName": "FocusDock",
   "description": "A tiny macOS todo widget powered by Markdown and AI.",

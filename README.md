@@ -8,6 +8,12 @@ FocusDock is a lightweight macOS desktop todo widget built with Electron, React,
 
 FocusDock 是一个使用 Electron、React 和 Vite 构建的轻量 macOS 桌面 Todo 小组件。它把任务保存在本地 `todo.md` 文件中，让用户和 AI 编程助手可以围绕同一份任务数据进行读取、编辑、总结和整理。
 
+## User Guide / 使用教程
+
+[Read the FocusDock 0.2.0 user guide.](USER_GUIDE.md)
+
+[阅读 FocusDock 0.2.0 使用教程。](USER_GUIDE.md)
+
 ## Features / 功能
 
 - Small transparent widget designed to sit near the top-right of the desktop.
@@ -92,7 +98,7 @@ The packaged app is generated under `release/`, usually as:
 
 ```text
 release/mac-arm64/FocusDock.app
-release/FocusDock-0.1.0-arm64-mac.zip
+release/FocusDock-0.2.0-arm64-mac.zip
 ```
 
 `release/`, `dist/`, and `node_modules/` are generated files and should not be committed to GitHub. For GitHub Releases, upload the generated zip instead of committing it to the repository.
